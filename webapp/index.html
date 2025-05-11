@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Hacking Tools WebApp</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <meta name="theme-color" content="#00ff00">
+  <style>
+    body {
+      background: #111;
+      color: #0f0;
+      font-family: 'Fira Mono', 'Consolas', monospace;
+      margin: 0; padding: 0;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 400px;
+      margin: 40px auto;
+      background: #181818;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #0f03;
+      padding: 2em;
+    }
+    h1 { color: #0f0; text-align: center; }
+    button {
+      background: #0f0;
+      color: #111;
+      border: none;
+      padding: 1em 2em;
+      margin: 1em 0;
+      width: 100%;
+      font-size: 1.2em;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+    button:hover { background: #090; }
+    input, textarea {
+      width: 100%;
+      background: #222;
+      color: #0f0;
+      border: 1px solid #0f0;
+      border-radius: 4px;
+      padding: 0.5em;
+      margin: 0.5em 0 1em 0;
+      font-family: inherit;
+    }
+    .log {
+      background: #000;
+      color: #0f0;
+      font-size: 0.95em;
+      padding: 1em;
+      border-radius: 5px;
+      min-height: 80px;
+      margin-top: 1em;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🦾 Hacking Tools</h1>
+    <button onclick="showSumariza()">Sumariza</button>
+    <button onclick="showNmap()">Nmap</button>
+    <button id="geoBtn">Geolocalización</button>
+    <button id="storeBtn">Guardar dato seguro</button>
+    <button id="notifyBtn">Notificación</button>
+    <div id="form"></div>
+    <div class="log" id="log"></div>
+  </div>
+  <script>
+    let tg = window.Telegram.WebApp;
+    function showSumariza() {
+      document.getElementById('form').innerHTML = `
+        <input id="sumariza_url" type="text" placeholder="Pega el link a resumir...">
+        <button onclick="sendSumariza()">Enviar</button>
+      `;
+      document.getElementById('log').innerText = '';
+    }
+    function showNmap() {
+      document.getElementById('form').innerHTML = `
+        <input id="nmap_target" type="text" placeholder="Host/IP para Nmap...">
+        <button onclick="sendNmap()">Escanear</button>
+      `;
+      document.getElementById('log').innerText = '';
+    }
+    function sendSumariza() {
+      let url = document.getElementById('sumariza_url').value;
+      if (!url) return;
+      document.getElementById('log').innerText = 'Enviando petición...';
+      fetch('/api/sumariza', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url, initData: tg.initData})
+      })
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('log').innerText = d.log || d.result || 'Hecho.';
+      });
+    }
+    function sendNmap() {
+      let target = document.getElementById('nmap_target').value;
+      if (!target) return;
+      document.getElementById('log').innerText = 'Iniciando escaneo Nmap...';
+      fetch('/api/nmap', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({target, initData: tg.initData})
+      })
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('log').innerText = d.log || d.result || 'Hecho.';
+      });
+    }
+    // --- Mini App advanced features ---
+    document.addEventListener('DOMContentLoaded', function() {
+      // Geolocalización
+      document.getElementById('geoBtn').onclick = function() {
+        if (tg.LocationManager) {
+          tg.LocationManager.init(() => {
+            tg.LocationManager.getLocation((loc) => {
+              if (loc) {
+                document.getElementById('log').innerText = `Lat: ${loc.latitude}, Lon: ${loc.longitude}`;
+              } else {
+                document.getElementById('log').innerText = 'No se pudo obtener la ubicación';
+              }
+            });
+          });
+        } else {
+          document.getElementById('log').innerText = 'Geolocalización no soportada';
+        }
+      };
+      // Almacenamiento seguro
+      document.getElementById('storeBtn').onclick = function() {
+        if (tg.SecureStorage) {
+          tg.SecureStorage.setItem('clave', 'valor secreto', (err, ok) => {
+            if (!err && ok) {
+              document.getElementById('log').innerText = 'Dato guardado en SecureStorage';
+            } else {
+              document.getElementById('log').innerText = 'Error guardando dato seguro';
+            }
+          });
+        } else {
+          document.getElementById('log').innerText = 'SecureStorage no soportado';
+        }
+      };
+      // Notificación (requiere permiso)
+      document.getElementById('notifyBtn').onclick = function() {
+        if (tg.requestWriteAccess) {
+          tg.requestWriteAccess((status) => {
+            if (status === 'allowed') {
+              tg.showAlert('¡Notificación enviada!');
+            } else {
+              document.getElementById('log').innerText = 'Permiso denegado para notificaciones';
+            }
+          });
+        } else {
+          document.getElementById('log').innerText = 'Notificaciones no soportadas';
+        }
+      };
+    });
+  </script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
